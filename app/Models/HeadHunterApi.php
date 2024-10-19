@@ -15,16 +15,22 @@ class HeadHunterApi extends Model
   ]);
  }
 
-public function getVacancies($text = 'php', $area = 1, $page = 0, $perPage = 20)
-{
-    $response = $this->client->get('vacancies', [
-        'query' => [
-            'text' => $text,
-            'area' => $area,
-            'page' => $page,
-            'per_page' => $perPage,
-        ]
-    ]);
-    return json_decode($response->getBody()->getContents(), true);
-}
+ public function getVacancies($text = 'php', $area = 1, $page = 0, $perPage = 20, $city = null)
+ {
+     $query = [
+         'text' => $text,
+         'area' => $area,
+         'page' => $page,
+         'per_page' => $perPage,
+     ];
+
+     // Если город указан, добавляем его в запрос
+     if ($city) {
+         $query['area'] = $city;
+     }
+
+     $response = $this->client->get('vacancies', ['query' => $query]);
+     return json_decode($response->getBody()->getContents(), true);
+ }
+
 }

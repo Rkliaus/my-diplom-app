@@ -17,16 +17,20 @@ class DataController extends Controller
     {
         $page = $request->input('page', 0);
         $perPage = $request->input('per_page', 20);
-        $region = $request->input('region', 1); // Получаем ID региона из запроса, по умолчанию 1
-        $sortBy = $request->input('sort_by', 'name'); // Получаем опцию сортировки, по умолчанию по имени
-        $vacancies = $this->HeadHunterApi->getVacancies('php', $region, $page, $perPage); // Запрос вакансий с учетом региона
-         // Проверяем опцию сортировки
-         if ($sortBy === 'region') {
-            // Если сортировка по региону, сортируем вакансии по полю area.name
-            usort($vacancies['items'], function ($a, $b) {
-                return strcmp($a['area']['name'], $b['area']['name']);
+        $region = $request->input('country', 1); // Изменим 'region' на 'country'
+        $city = $request->input('city'); // Получаем город, если выбран
+        $text = $request->input('text', 'php'); // Строка поиска
+
+        // Добавляем фильтр по городу, если он есть
+        $vacancies = $this->HeadHunterApi->getVacancies($text, $region, $page, $perPage, $city);
+
+        // Если фильтр по городу, сортируем вакансии по полю города
+        if ($city) {
+            $vacancies['items'] = array_filter($vacancies['items'], function ($vacancy) use ($city) {
+                return isset($vacancy['area']['id']) && $vacancy['area']['id'] == $city;
             });
         }
+
         return response()->json($vacancies);
     }
 

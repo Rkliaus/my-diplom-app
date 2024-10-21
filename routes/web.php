@@ -8,10 +8,11 @@ use App\Http\Controllers\Auth\EmailVerificationPromptController;
 use App\Http\Controllers\Auth\NewPasswordController;
 use App\Http\Controllers\Auth\VerifyEmailController;
 use App\Http\Controllers\ProfileController;
-use App\Http\Controllers\DataController;
 use Illuminate\Foundation\Application;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
+use App\Http\Controllers\HeadHunterApiController;
+use App\Http\Controllers\JobController;
 
 // Home page
 Route::get('/', function () {
@@ -51,14 +52,22 @@ Route::middleware('auth')->group(function () {
     Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
 });
 
+
+// Controller routes
+Route::get('/jobs', [JobController::class, 'index'])->name('jobs.index');
+Route::post('/jobs', [JobController::class, 'store'])->name('jobs.store');
+Route::get('/jobs/{id}', [JobController::class, 'show'])->name('jobs.show');
+Route::put('/jobs/{id}', [JobController::class, 'update'])->name('jobs.update');
+Route::delete('/jobs/{id}', [JobController::class, 'destroy'])->name('jobs.destroy');
 // Other routes
-Route::get('/data', [DataController::class, 'index']);
 Route::get('/vacancies', function () {
     return Inertia::render('Vacancies'); // Отображаем новый компонент
 })->name('vacancies');
 
 
 
+Route::get('/fetch-hh-data', [HeadHunterApiController::class, 'fetchData']);
+Route::get('/headhunter/vacancies', [HeadHunterApiController::class, 'getData']);
 
 // Remove or comment out the line requiring auth.php
 // require __DIR__.'/auth.php';

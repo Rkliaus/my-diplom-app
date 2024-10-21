@@ -6,22 +6,22 @@ use Illuminate\Support\Facades\Schema;
 
 class CreateHeadHunterDataTable extends Migration
 {
+
     public function up()
     {
         Schema::create('head_hunter_data', function (Blueprint $table) {
             $table->id();
-            $table->string('vacancy_id')->unique(); // ID вакансии из API
-            $table->string('name');                 // Название вакансии
-            $table->string('area_id');              // ID региона/города
-            $table->string('area_name');            // Название региона/города
-            $table->decimal('salary_from', 10, 2)->nullable(); // Зарплата "от"
-            $table->decimal('salary_to', 10, 2)->nullable();   // Зарплата "до"
-            $table->string('currency')->nullable(); // Валюта зарплаты
-            $table->string('employer_name')->nullable(); // Название работодателя
-            $table->timestamp('published_at');      // Дата публикации
-            $table->timestamps();                   // Стандартные поля created_at и updated_at
+            $table->string('hh_id')->unique()->nullable(); // Уникальный идентификатор вакансии с HeadHunter
+            $table->string('title'); // Название вакансии
+            $table->string('company'); // Название компании
+            $table->string('salary')->nullable(); // Диапазон зарплат или NULL
+            $table->string('country'); // Страна или регион
+            $table->string('city')->nullable(); // Город (может отсутствовать)
+            $table->timestamp('published_at'); // Дата публикации вакансии
+            $table->timestamps(); // Временные метки created_at и updated_at
         });
     }
+
 
     public function down()
     {

@@ -1,170 +1,278 @@
 <template>
     <div>
-      <!-- Поле для поиска вакансий -->
-      <label for="search-input">Поиск вакансий по названию:</label>
-      <input
-        type="text"
-        id="search-input"
-        v-model="searchQuery"
-        placeholder="Введите название вакансии"
-      />
+        <div class="filter-container">
+            <input type="text" placeholder="Поиск по названию вакансии" v-model="searchTitle" />
+            <input type="text" placeholder="Город" v-model="searchCity" />
+            <input type="text" placeholder="Компания" v-model="searchCompany" />
+            <input type="number" placeholder="Минимальная зарплата" v-model="searchSalaryMin" />
+            <input type="number" placeholder="Максимальная зарплата" v-model="searchSalaryMax" />
+        </div>
 
-      <!-- Выбор страны -->
-      <label for="country-select">Выберите страну:</label>
-      <select id="country-select" v-model="selectedCountry">
-        <option v-for="country in countries" :key="country.id" :value="country.id">
-          {{ country.name }}
-        </option>
-      </select>
+        <div class="vacancy-list">
+            <div v-for="vacancy in paginatedVacancies" :key="vacancy.hh_id" class="vacancy-card"
+                @click="openModal(vacancy)">
+                <h2>{{ vacancy.title }}</h2>
+                <p><strong>Компания:</strong> {{ vacancy.company }}</p>
+                <p><strong>Зарплата:</strong> {{ vacancy.salary }}</p>
+                <p><strong>Город:</strong> {{ vacancy.country }}</p>
+                <p><strong>Опубликовано:</strong> {{ vacancy.published_at }}</p>
+            </div>
+        </div>
 
-      <!-- Выбор города, если доступен -->
-      <label v-if="cities.length > 0" for="city-select">Выберите город:</label>
-      <select v-if="cities.length > 0" id="city-select" v-model="selectedCity">
-        <option value="">Все города</option>
-        <option v-for="city in cities" :key="city.id" :value="city.id">
-          {{ city.name }}
-        </option>
-      </select>
+        <!-- Пагинация -->
+        <div class="pagination">
+            <button @click="prevPage" :disabled="currentPage === 1">Назад</button>
+            <span>Страница {{ currentPage }} из {{ totalPages }}</span>
+            <button @click="nextPage" :disabled="currentPage === totalPages">Вперед</button>
+        </div>
 
-      <!-- Индикация загрузки или ошибок -->
-      <p v-if="loading">Загрузка данных...</p>
-      <p v-else-if="error">{{ error }}</p>
+        <!-- Модальное окно -->
+        <div v-if="isModalOpen" class="modal-overlay">
+            <div class="modal">
+                <h2>{{ selectedVacancy.title }}</h2>
+                <p><strong>Компания:</strong> {{ selectedVacancy.company }}</p>
+                <p><strong>Зарплата:</strong> {{ selectedVacancy.salary }}</p>
+                <p><strong>Город:</strong> {{ selectedVacancy.country }}</p>
+                <p><strong>Опубликовано:</strong> {{ selectedVacancy.published_at }}</p>
 
-      <!-- Список вакансий -->
-      <ul v-else>
-        <li v-for="(vacancy, index) in vacancies" :key="index">
-          <p><strong>{{ vacancy.name }}</strong></p>
-          <!-- Если информация о зарплате доступна -->
-          <p v-if="vacancy.salary">
-            Зарплата: {{ formatSalary(vacancy.salary) }}
-          </p>
-          <p v-else>
-            Зарплата: Не указана
-          </p>
-        </li>
-      </ul>
-
-      <!-- Пагинация -->
-      <div v-if="totalPages > 1" class="pagination">
-        <button @click="prevPage" :disabled="currentPage === 0">Назад</button>
-        <span>Страница {{ currentPage + 1 }} из {{ totalPages }}</span>
-        <button @click="nextPage" :disabled="currentPage === totalPages - 1">Вперед</button>
-      </div>
+                <button v-if="isUserAuthenticated" class="apply-button">Откликнуться</button>
+                <Link v-else :href="route('register')" class="register-button">Зарегистрироваться</Link>
+                <button @click="closeModal" class="close-button">Закрыть</button>
+            </div>
+        </div>
     </div>
-  </template>
+</template>
 
-  <script setup>
-  import { ref, onMounted, watch } from 'vue'
-  import axios from 'axios'
+<script>
+import axios from 'axios';
+import { usePage, Link } from '@inertiajs/vue3';
 
-  const countries = ref([]); // Список стран
-  const cities = ref([]); // Список городов выбранной страны
-  const vacancies = ref([]); // Список вакансий
-  const loading = ref(false); // Состояние загрузки
-  const error = ref(null); // Сообщение об ошибке
-  const selectedCountry = ref(null); // Выбранная страна
-  const selectedCity = ref(''); // Выбранный город
-  const searchQuery = ref(''); // Строка поиска
+export default {
+    components: {
+        Link,
+    },
+    setup() {
+        const page = usePage();
+        return { page };
+    },
+    data() {
+        return {
+            vacancies: [],
+            searchTitle: '',
+            searchCity: '',
+            searchCompany: '',
+            searchSalaryMin: '',
+            searchSalaryMax: '',
+            selectedVacancy: null,
+            isModalOpen: false,
+            currentPage: 1,
+            itemsPerPage: 30,
+        };
+    },
+    computed: {
+        isUserAuthenticated() {
+            return this.page.props.auth.user !== null;
+        },
+        filteredVacancies() {
+            return this.vacancies.filter(vacancy => {
+                const salary = vacancy.salary ? vacancy.salary.split(' - ').map(s => parseInt(s)) : [0, Infinity];
+                const salaryMin = this.searchSalaryMin ? parseInt(this.searchSalaryMin) : 0;
+                const salaryMax = this.searchSalaryMax ? parseInt(this.searchSalaryMax) : Infinity;
 
-  const currentPage = ref(0); // Текущая страница
-  const totalPages = ref(1); // Общее количество страниц
-  const perPage = 20; // Количество вакансий на одной странице
+                return (
+                    vacancy.title.toLowerCase().includes(this.searchTitle.toLowerCase()) &&
+                    vacancy.city.toLowerCase().includes(this.searchCity.toLowerCase()) &&
+                    vacancy.company.toLowerCase().includes(this.searchCompany.toLowerCase()) &&
+                    salary[0] >= salaryMin &&
+                    salary[1] <= salaryMax
+                );
+            });
+        },
+        totalPages() {
+            return Math.ceil(this.filteredVacancies.length / this.itemsPerPage);
+        },
+        paginatedVacancies() {
+            const start = (this.currentPage - 1) * this.itemsPerPage;
+            return this.filteredVacancies.slice(start, start + this.itemsPerPage);
+        },
+    },
+    mounted() {
+        this.fetchVacancies();
+    },
+    methods: {
+        fetchVacancies() {
+            axios.get('/headhunter/vacancies')
+                .then(response => {
+                    this.vacancies = response.data;
+                })
+                .catch(error => {
+                    console.error('Ошибка при получении данных:', error);
+                });
+        },
+        openModal(vacancy) {
+            this.selectedVacancy = vacancy; // Устанавливаем выбранную вакансию
+            this.isModalOpen = true; // Открываем модальное окно
+        },
+        closeModal() {
+            this.isModalOpen = false; // Закрываем модальное окно
+            this.selectedVacancy = null; // Сбрасываем выбранную вакансию
+        },
+        nextPage() {
+            if (this.currentPage < this.totalPages) {
+                this.currentPage++;
+            }
+        },
+        prevPage() {
+            if (this.currentPage > 1) {
+                this.currentPage--;
+            }
+        },
+    },
+};
+</script>
+<style scoped>
+.filter-container {
+    margin-bottom: 20px;
+}
 
-  // Получаем список стран с регионами и городами
-  const fetchCountries = async () => {
-    try {
-      const response = await axios.get('https://api.hh.ru/areas');
-      countries.value = response.data; // Загружаем все страны
-    } catch (err) {
-      console.error('Ошибка при загрузке стран:', err);
-      error.value = 'Ошибка загрузки стран';
-    }
-  };
+.filter-container input {
+    margin-right: 10px;
+    padding: 8px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+}
 
-  // Обработка выбора страны и обновление списка городов
-  watch(selectedCountry, () => {
-    const country = countries.value.find(c => c.id === selectedCountry.value);
-    cities.value = country ? country.areas : [];
-    selectedCity.value = ''; // Сброс выбора города
-    currentPage.value = 0; // Сброс страницы на первую
-    fetchVacancies(); // Обновляем вакансии при изменении страны
-  });
+.vacancy-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 20px;
+}
 
-  // Форматирование зарплаты (от - до или одна сумма)
-  const formatSalary = (salary) => {
-    if (salary.from && salary.to) {
-      return `${salary.from} - ${salary.to} ${salary.currency}`;
-    } else if (salary.from) {
-      return `от ${salary.from} ${salary.currency}`;
-    } else if (salary.to) {
-      return `до ${salary.to} ${salary.currency}`;
-    }
-    return 'Не указана';
-  };
+.vacancy-card {
+    background-color: #f9f9f9;
+    border: 1px solid #ccc;
+    border-radius: 8px;
+    padding: 16px;
+    width: calc(33% - 20px);
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    transition: transform 0.2s;
+    cursor: pointer;
+    /* Указатель курсора при наведении на карточку */
+}
 
-  // Загружаем вакансии с учетом выбранной страны, города и строки поиска
-  const fetchVacancies = async () => {
-    loading.value = true;
-    error.value = null;
+.vacancy-card:hover {
+    transform: translateY(-5px);
+}
 
-    try {
-      const response = await axios.get('/data', {
-        params: {
-          country: selectedCountry.value || null, // ID выбранной страны
-          city: selectedCity.value || null, // ID города
-          text: searchQuery.value, // Строка поиска
-          page: currentPage.value, // Номер страницы
-          per_page: perPage // Количество вакансий на странице
-        }
-      });
+/* Стили для модального окна */
+.modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: rgba(0, 0, 0, 0.5);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
 
-      vacancies.value = response.data.items; // vacancies находятся в "items"
-      totalPages.value = Math.ceil(response.data.found / perPage); // Вычисляем общее количество страниц
-    } catch (err) {
-      console.error('Ошибка при загрузке данных:', err);
-      error.value = 'Ошибка загрузки данных';
-    } finally {
-      loading.value = false;
-    }
-  };
+.modal {
+    background-color: #fff;
+    padding: 20px;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+    width: 300px;
+}
 
-  // Переключение на следующую страницу
-  const nextPage = () => {
-    if (currentPage.value < totalPages.value - 1) {
-      currentPage.value += 1;
-      fetchVacancies();
-    }
-  };
+.apply-button {
+    background-color: green;
+    /* Зеленый цвет кнопки */
+    color: white;
+    /* Цвет текста кнопки */
+    padding: 10px 15px;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+    margin-right: 10px;
+    /* Отступ справа от кнопки "Откликнуться" */
+}
 
-  // Переключение на предыдущую страницу
-  const prevPage = () => {
-    if (currentPage.value > 0) {
-      currentPage.value -= 1;
-      fetchVacancies();
-    }
-  };
+.apply-button:hover {
+    background-color: darkgreen;
+    /* Темно-зеленый при наведении */
+}
 
-  // Следим за изменениями строки поиска и города
-  watch([searchQuery, selectedCity], () => {
-    currentPage.value = 0; // Сбрасываем на первую страницу при изменении фильтров
-    fetchVacancies(); // Обновляем вакансии при изменении фильтров
-  });
+.close-button {
+    background-color: red;
+    /* Красный цвет кнопки "Закрыть" */
+    color: white;
+    /* Цвет текста кнопки */
+    padding: 10px 15px;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+    margin-left: 10px;
+    /* Добавляем отступ слева */
+}
 
-  onMounted(() => {
-    fetchCountries(); // Загружаем список стран при монтировании компонента
-    fetchVacancies(); // Загружаем вакансии по умолчанию (без фильтров)
-  });
-  </script>
+.close-button:hover {
+    background-color: darkred;
+    /* Темно-красный при наведении */
+}
 
-  <style>
-  .pagination {
+.register-button {
+    background-color: blue;
+    color: white;
+    padding: 10px 15px;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+    margin-right: 10px;
+    text-decoration: none;
+    display: inline-block;
+}
+
+.register-button:hover {
+    background-color: darkblue;
+}
+
+.pagination {
+    margin-top: 20px;
     display: flex;
     justify-content: center;
-    align-items: center;
-    margin-top: 20px;
-  }
+    gap: 10px;
+}
 
-  button {
-    margin: 0 10px;
-  }
-  </style>
+.pagination button {
+    padding: 10px 15px;
+    border: none;
+    border-radius: 5px;
+    background-color: #007bff;
+    color: white;
+    cursor: pointer;
+}
+
+.pagination button:disabled {
+    background-color: #ccc;
+    cursor: not-allowed;
+}
+
+.pagination span {
+    align-self: center;
+}
+.dashboard-button {
+  display: inline-block;
+  padding: 10px 15px;
+  background-color: #4CAF50;
+  color: white;
+  text-decoration: none;
+  border-radius: 5px;
+  margin-bottom: 20px;
+  transition: background-color 0.3s;
+}
+
+.dashboard-button:hover {
+  background-color: #45a049;
+}
+</style>

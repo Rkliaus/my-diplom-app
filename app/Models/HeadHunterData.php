@@ -14,7 +14,7 @@ class HeadHunterData extends Model
         'title',        // Название вакансии
         'company',      // Название компании
         'salary',       // Диапазон зарплат
-        'country',      // Страна или регион
+
         'city',         // Город
         'published_at', // Дата публикации
     ];

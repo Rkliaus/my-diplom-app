@@ -69,26 +69,4 @@ Route::get('/vacancies', function () {
 Route::get('/fetch-hh-data', [HeadHunterApiController::class, 'fetchData']);
 Route::get('/headhunter/vacancies', [HeadHunterApiController::class, 'getData']);
 
-// Remove or comment out the line requiring auth.php
-// require __DIR__.'/auth.php';
 
-// Route::get(uri: '/data/getdata', [DataController::class, 'getData']);
-
-// Route::get('/vacancies', [DataController::class, 'index']);
-
-
-
-
-
-
-
-
-// Route::get('/vacancies', [DataController::class, 'getVacancies']);
-// // Route::get('/vacancies', [VacancyController::class, 'index']);
-// Route::middleware('auth:sanctum')->group(function () {
-//     Route::apiResource('vacancies', VacancyController::class);
-// });
-// Route::get('/vacancies', [VacancyController::class, 'index']);
-// Route::post('/vacancies', [VacancyController::class, 'store']);
-// Route::put('/vacancies/{id}', [VacancyController::class, 'update']);
-// Route::delete('/vacancies/{id}', [VacancyController::class, 'destroy']);

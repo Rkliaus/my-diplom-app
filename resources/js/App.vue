@@ -4,17 +4,15 @@
             <input type="text" placeholder="Поиск по названию вакансии" v-model="searchTitle" />
             <input type="text" placeholder="Город" v-model="searchCity" />
             <input type="text" placeholder="Компания" v-model="searchCompany" />
-            <input type="number" placeholder="Минимальная зарплата" v-model="searchSalaryMin" />
-            <input type="number" placeholder="Максимальная зарплата" v-model="searchSalaryMax" />
+            <input type="number" placeholder="Минимальная зарплата" v-model="searchSalaryMin" class="no-arrows" />
         </div>
 
         <div class="vacancy-list">
-            <div v-for="vacancy in paginatedVacancies" :key="vacancy.hh_id" class="vacancy-card"
-                @click="openModal(vacancy)">
+            <div v-for="vacancy in paginatedVacancies" :key="vacancy.hh_id" class="vacancy-card" @click="openModal(vacancy)">
                 <h2>{{ vacancy.title }}</h2>
                 <p><strong>Компания:</strong> {{ vacancy.company }}</p>
                 <p><strong>Зарплата:</strong> {{ vacancy.salary }}</p>
-                <p><strong>Город:</strong> {{ vacancy.country }}</p>
+                <p><strong>Город:</strong> {{ vacancy.city }}</p>
                 <p><strong>Опубликовано:</strong> {{ vacancy.published_at }}</p>
             </div>
         </div>
@@ -26,18 +24,48 @@
             <button @click="nextPage" :disabled="currentPage === totalPages">Вперед</button>
         </div>
 
-        <!-- Модальное окно -->
+        <!-- Модальное окно для просмотра вакансии -->
         <div v-if="isModalOpen" class="modal-overlay">
             <div class="modal">
                 <h2>{{ selectedVacancy.title }}</h2>
                 <p><strong>Компания:</strong> {{ selectedVacancy.company }}</p>
                 <p><strong>Зарплата:</strong> {{ selectedVacancy.salary }}</p>
-                <p><strong>Город:</strong> {{ selectedVacancy.country }}</p>
+                <p><strong>Город:</strong> {{ selectedVacancy.city }}</p>
                 <p><strong>Опубликовано:</strong> {{ selectedVacancy.published_at }}</p>
+                <p><strong>ID:</strong> {{ selectedVacancy.id }}</p> <!-- Добавляем ID вакансии -->
 
+                <button v-if="isUserAuthenticated" @click="deleteVacancy(selectedVacancy.id)" class="delete-button">Удалить вакансию</button> <!-- Кнопка удаления -->
+                <button v-if="isUserAuthenticated" @click="openEditModal(selectedVacancy)" class="edit-button">Редактировать вакансию</button> <!-- Кнопка редактирования -->
                 <button v-if="isUserAuthenticated" class="apply-button">Откликнуться</button>
                 <Link v-else :href="route('register')" class="register-button">Зарегистрироваться</Link>
                 <button @click="closeModal" class="close-button">Закрыть</button>
+            </div>
+        </div>
+
+        <!-- Модальное окно для редактирования вакансии -->
+        <div v-if="isEditModalOpen" class="modal-overlay">
+            <div class="modal">
+                <h2>Редактировать вакансию</h2>
+                <form @submit.prevent="saveVacancy">
+                    <label>Название:</label>
+                    <input type="text" v-model="editVacancy.title" required>
+
+                    <label>Компания:</label>
+                    <input type="text" v-model="editVacancy.company" required>
+
+                    <label>Зарплата от:</label>
+                    <input type="number" v-model="editVacancy.salary_min" required>
+
+                    <label>Зарплата до:</label>
+                    <input type="number" v-model="editVacancy.salary_max" required>
+
+                    <label>Город:</label>
+                    <input type="text" v-model="editVacancy.city" required>
+
+                    <!-- Убираем редактирование поля даты публикации -->
+                    <button type="submit" class="save-button">Сохранить изменения</button>
+                    <button @click="closeEditModal" class="close-button">Отмена</button>
+                </form>
             </div>
         </div>
     </div>
@@ -62,11 +90,12 @@ export default {
             searchCity: '',
             searchCompany: '',
             searchSalaryMin: '',
-            searchSalaryMax: '',
             selectedVacancy: null,
             isModalOpen: false,
             currentPage: 1,
             itemsPerPage: 30,
+            editVacancy: null, // Данные для редактируемой вакансии
+            isEditModalOpen: false, // Управление состоянием модального окна редактирования
         };
     },
     computed: {
@@ -77,14 +106,12 @@ export default {
             return this.vacancies.filter(vacancy => {
                 const salary = vacancy.salary ? vacancy.salary.split(' - ').map(s => parseInt(s)) : [0, Infinity];
                 const salaryMin = this.searchSalaryMin ? parseInt(this.searchSalaryMin) : 0;
-                const salaryMax = this.searchSalaryMax ? parseInt(this.searchSalaryMax) : Infinity;
 
                 return (
                     vacancy.title.toLowerCase().includes(this.searchTitle.toLowerCase()) &&
                     vacancy.city.toLowerCase().includes(this.searchCity.toLowerCase()) &&
                     vacancy.company.toLowerCase().includes(this.searchCompany.toLowerCase()) &&
-                    salary[0] >= salaryMin &&
-                    salary[1] <= salaryMax
+                    salary[0] >= salaryMin
                 );
             });
         },
@@ -117,6 +144,36 @@ export default {
             this.isModalOpen = false; // Закрываем модальное окно
             this.selectedVacancy = null; // Сбрасываем выбранную вакансию
         },
+        openEditModal(vacancy) {
+            this.editVacancy = {
+                ...vacancy,
+                salary_min: parseInt(vacancy.salary.split(' - ')[0]),
+                salary_max: parseInt(vacancy.salary.split(' - ')[1])
+            }; // заполняем данные для редактирования
+            this.isEditModalOpen = true;
+        },
+        closeEditModal() {
+            this.isEditModalOpen = false;
+            this.editVacancy = null; // Сбрасываем данные редактируемой вакансии
+        },
+        saveVacancy() {
+    // Установка текущей даты публикации в формате ISO
+    this.editVacancy.published_at = new Date().toISOString().slice(0, 19); // Убираем миллисекунды
+
+    // Объединение зарплаты в строку формата "от - до"
+    this.editVacancy.salary = `${this.editVacancy.salary_min} - ${this.editVacancy.salary_max}`;
+
+    // Отправка данных на сервер с обновленной датой
+    axios.put(`/jobs/${this.editVacancy.id}`, this.editVacancy)
+        .then(response => {
+            this.fetchVacancies(); // Обновляем список вакансий
+            this.closeEditModal(); // Закрываем модальное окно
+        })
+        .catch(error => {
+            console.error('Ошибка при обновлении вакансии:', error);
+        });
+},
+
         nextPage() {
             if (this.currentPage < this.totalPages) {
                 this.currentPage++;
@@ -127,9 +184,23 @@ export default {
                 this.currentPage--;
             }
         },
+        deleteVacancy(id) {
+            if (confirm('Вы уверены, что хотите удалить эту вакансию?')) {
+                axios.delete(`/jobs/${id}`)
+                    .then(response => {
+                        this.fetchVacancies(); // Обновляем список вакансий
+                        this.closeModal(); // Закрываем модальное окно
+                    })
+                    .catch(error => {
+                        console.error('Ошибка при удалении вакансии:', error);
+                    });
+            }
+        },
     },
 };
 </script>
+
+
 <style scoped>
 .filter-container {
     margin-bottom: 20px;
@@ -142,6 +213,17 @@ export default {
     border-radius: 4px;
 }
 
+/* Убираем стрелочки для input с типом number */
+.no-arrows {
+    -moz-appearance: textfield; /* Для Firefox */
+}
+
+.no-arrows::-webkit-outer-spin-button,
+.no-arrows::-webkit-inner-spin-button {
+    -webkit-appearance: none; /* Для Chrome, Safari, Edge */
+}
+
+/* Остальные стили остаются без изменений */
 .vacancy-list {
     display: flex;
     flex-wrap: wrap;
@@ -157,7 +239,6 @@ export default {
     box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
     transition: transform 0.2s;
     cursor: pointer;
-    /* Указатель курсора при наведении на карточку */
 }
 
 .vacancy-card:hover {
@@ -185,40 +266,33 @@ export default {
     width: 300px;
 }
 
+/* Остальные стили для кнопок и пагинации */
 .apply-button {
     background-color: green;
-    /* Зеленый цвет кнопки */
     color: white;
-    /* Цвет текста кнопки */
     padding: 10px 15px;
     border: none;
     border-radius: 5px;
     cursor: pointer;
     margin-right: 10px;
-    /* Отступ справа от кнопки "Откликнуться" */
 }
 
 .apply-button:hover {
     background-color: darkgreen;
-    /* Темно-зеленый при наведении */
 }
 
 .close-button {
     background-color: red;
-    /* Красный цвет кнопки "Закрыть" */
     color: white;
-    /* Цвет текста кнопки */
     padding: 10px 15px;
     border: none;
     border-radius: 5px;
     cursor: pointer;
     margin-left: 10px;
-    /* Добавляем отступ слева */
 }
 
 .close-button:hover {
     background-color: darkred;
-    /* Темно-красный при наведении */
 }
 
 .register-button {
@@ -261,18 +335,48 @@ export default {
 .pagination span {
     align-self: center;
 }
+
 .dashboard-button {
-  display: inline-block;
-  padding: 10px 15px;
-  background-color: #4CAF50;
-  color: white;
-  text-decoration: none;
-  border-radius: 5px;
-  margin-bottom: 20px;
-  transition: background-color 0.3s;
+    display: inline-block;
+    padding: 10px 15px;
+    background-color: #4CAF50;
+    color: white;
+    text-decoration: none;
+    border-radius: 5px;
+    margin-bottom: 20px;
+    transition: background-color 0.3s;
 }
 
 .dashboard-button:hover {
-  background-color: #45a049;
+    background-color: #45a049;
 }
+
+.delete-button {
+    background-color: red;
+    color: white;
+    padding: 10px 15px;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+    margin-right: 10px;
+}
+
+.delete-button:hover {
+    background-color: darkred;
+}
+
+.edit-button {
+    background-color: #f0ad4e;
+    color: white;
+    padding: 10px 15px;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+    margin-right: 10px;
+}
+
+.edit-button:hover {
+    background-color: #ec971f;
+}
+
 </style>

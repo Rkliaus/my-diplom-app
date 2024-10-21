@@ -11,13 +11,15 @@ const form = useForm({
     company: '',
     salary_min: '',
     salary_max: '',
-    country: '',
     city: '',
     published_at: '',
 });
 
 // Функция для отправки данных через POST-запрос
 function createJob() {
+    // Установка текущей даты и времени в формате ISO
+    form.published_at = new Date().toISOString().slice(0, 19); // Убираем миллисекунды
+
     form.post(route('jobs.store'), {
         onSuccess: () => {
             console.log('Vacancy created successfully');
@@ -65,12 +67,6 @@ function createJob() {
                                 </div>
                             </div>
 
-                            <!-- Поле для страны -->
-                            <div class="mb-4">
-                                <label for="country" class="block text-sm font-medium text-gray-700">Country</label>
-                                <input type="text" id="country" v-model="form.country" class="mt-1 block w-full" required>
-                            </div>
-
                             <!-- Поле для города -->
                             <div class="mb-4">
                                 <label for="city" class="block text-sm font-medium text-gray-700">City</label>
@@ -78,10 +74,10 @@ function createJob() {
                             </div>
 
                             <!-- Поле для даты публикации -->
-                            <div class="mb-4">
+                            <!-- <div class="mb-4">
                                 <label for="published_at" class="block text-sm font-medium text-gray-700">Published At</label>
                                 <input type="date" id="published_at" v-model="form.published_at" class="mt-1 block w-full" required>
-                            </div>
+                            </div> -->
 
                             <!-- Кнопка для отправки данных -->
                             <div>

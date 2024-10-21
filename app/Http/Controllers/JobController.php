@@ -19,7 +19,7 @@ class JobController extends Controller
             'company' => 'required|string',
             'salary_min' => 'required|numeric|min:0',
             'salary_max' => 'required|numeric|gte:salary_min',
-            'country' => 'required|string',
+
             'city' => 'required|string',
             'published_at' => 'required|date',
         ]);
@@ -28,7 +28,7 @@ class JobController extends Controller
             'title' => $request->title,
             'company' => $request->company,
             'salary' => $request->salary_min . ' - ' . $request->salary_max,
-            'country' => $request->country,
+
             'city' => $request->city,
             'published_at' => $request->published_at,
         ]);
@@ -47,9 +47,10 @@ class JobController extends Controller
         $request->validate([
             'title' => 'required|string',
             'company' => 'required|string',
-            'salary' => 'nullable|string',
-            'country' => 'required|string',
-            'city' => 'nullable|string',
+            'salary_min' => 'required|numeric|min:0',
+            'salary_max' => 'required|numeric|gte:salary_min',
+
+            'city' => 'required|string',
             'published_at' => 'required|date',
         ]);
 

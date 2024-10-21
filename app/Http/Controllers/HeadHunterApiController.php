@@ -54,8 +54,8 @@ class HeadHunterApiController extends Controller
                                 'title' => $vacancy['name'],
                                 'company' => $vacancy['employer']['name'],
                                 'salary' => $vacancy['salary']['from'] . ' - ' . $vacancy['salary']['to'],
-                                'country' => $vacancy['area']['name'], // Страна или регион
-                                'city' => $vacancy['address']['city'] ?? 'Не указан', // Город (может отсутствовать)
+                                'city' => $vacancy['area']['name'], // Страна или регион
+
                                 'published_at' => Carbon::parse($vacancy['published_at']),
                             ]);
                         }

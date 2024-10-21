@@ -275,7 +275,7 @@ class Kernel implements KernelContract
      */
     protected function schedule(Schedule $schedule)
     {
-        //
+        $schedule->command('headhunter:fetch')->everyFiveMinutes();//
     }
 
     /**
@@ -321,7 +321,9 @@ class Kernel implements KernelContract
      */
     protected function commands()
     {
-        //
+        $this->load(__DIR__.'/Commands');
+
+        require base_path('routes/console.php');//
     }
 
     /**
